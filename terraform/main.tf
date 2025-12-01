@@ -143,7 +143,6 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "main" {
   identifier             = "pdc-db"
   engine                 = "postgres"
-  engine_version         = "15.4"
   instance_class         = var.db_instance_class
   allocated_storage      = 20
   storage_type           = "gp3"
@@ -189,30 +188,8 @@ resource "aws_ecr_repository" "app" {
 }
 
 # IAM Role for ECS Task
-resource "aws_iam_role" "ecs_task" {
+data "aws_iam_role" "ecs_task" {
   name = "pdc-ecs-task-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "pdc-ecs-task-role"
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task" {
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 # Application Load Balancer
