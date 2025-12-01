@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  sftp:
+    image: atmoz/sftp:latest
+    container_name: pdc-sftp
+    ports:
+      - "${SFTP_HOST_PORT:-3022}:22"
+    volumes:
+      - ./sftp-data:/home/sftp_user/uploads
+      - ./sftp-processed:/home/sftp_user/processed
+    command: sftp_user:password:1001:1001:uploads,processed
+    environment:
+      - SFTP_USERS=sftp_user:password:1001:1001:uploads,processed
+    restart: unless-stopped
+
