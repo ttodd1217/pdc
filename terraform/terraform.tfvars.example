@@ -1,4 +1,4 @@
-aws_region      = "us-east-1"
+aws_region      = "us-east-2"
 db_instance_class = "db.t3.micro"
 db_username      = "postgres"
 db_password      = "CHANGE_ME_IN_PRODUCTION"

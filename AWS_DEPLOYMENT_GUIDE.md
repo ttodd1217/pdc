@@ -21,7 +21,7 @@ Before starting, ensure you have:
 aws configure
 # Enter your AWS Access Key ID
 # Enter your AWS Secret Access Key
-# Enter default region (e.g., us-east-1)
+# Enter default region (e.g., us-east-2)
 # Enter default output format (json)
 ```
 
@@ -29,7 +29,7 @@ aws configure
 
 ```bash
 # Create bucket for Terraform state
-aws s3 mb s3://pdc-terraform-state --region us-east-1
+aws s3 mb s3://pdc-terraform-state --region us-east-2
 
 # Enable versioning (recommended)
 aws s3api put-bucket-versioning \
@@ -62,7 +62,7 @@ cp terraform.tfvars.example terraform.tfvars
 Open `terraform/terraform.tfvars` and set your values:
 
 ```hcl
-aws_region       = "us-east-1"
+aws_region       = "us-east-2"
 db_instance_class = "db.t3.micro"  # Use db.t3.small or larger for production
 db_username      = "postgres"
 db_password      = "YOUR_SECURE_PASSWORD_HERE"  # Change this!
@@ -86,13 +86,13 @@ api_key          = "YOUR_SECURE_API_KEY_HERE"  # Change this!
 aws secretsmanager create-secret \
     --name pdc/sftp-key \
     --secret-string file://~/.ssh/id_ed25519 \
-    --region us-east-1
+    --region us-east-2
 
 # Or if secret already exists, update it
 aws secretsmanager update-secret \
     --secret-id pdc/sftp-key \
     --secret-string file://~/.ssh/id_ed25519 \
-    --region us-east-1
+    --region us-east-2
 ```
 
 ### 3.2 Store Alert API Key
@@ -100,8 +100,8 @@ aws secretsmanager update-secret \
 ```bash
 aws secretsmanager create-secret \
     --name pdc/alert-api-key \
-    --secret-string "your-alert-api-key" \
-    --region us-east-1
+    --secret-string "alert-api-key" \
+    --region us-east-2
 ```
 
 ## Step 4: Deploy Infrastructure with Terraform
@@ -168,7 +168,7 @@ terraform output ecr_repository_url
 ECR_URL=$(terraform output -raw ecr_repository_url)
 
 # Login to ECR
-aws ecr get-login-password --region us-east-1 | \
+aws ecr get-login-password --region us-east-2 | \
     docker login --username AWS --password-stdin $ECR_URL
 ```
 
@@ -231,13 +231,13 @@ The Terraform configuration should have created the ECS service. Verify it's run
 aws ecs describe-services \
     --cluster pdc-cluster \
     --services pdc-app-service \
-    --region us-east-1
+    --region us-east-2
 
 # Check running tasks
 aws ecs list-tasks \
     --cluster pdc-cluster \
     --service-name pdc-app-service \
-    --region us-east-1
+    --region us-east-2
 ```
 
 If the service wasn't created, you can create it manually or update Terraform and re-apply.
@@ -301,7 +301,7 @@ Add these secrets:
 ### 9.2 Update deploy.yml (if needed)
 
 The `.github/workflows/deploy.yml` should work, but you may need to:
-- Update the region if different from us-east-1
+- Update the region if different from us-east-2
 - Add additional environment variables
 
 ### 9.3 Trigger Deployment
@@ -319,7 +319,7 @@ The Terraform configuration includes a scheduled task that runs every hour. Veri
 
 ```bash
 # Check EventBridge rule
-aws events describe-rule --name pdc-ingestion-schedule --region us-east-1
+aws events describe-rule --name pdc-ingestion-schedule --region us-east-2
 ```
 
 ### 10.2 Configure Alerting Service
@@ -356,7 +356,7 @@ Update the `ALERT_SERVICE_URL` environment variable in your ECS task definition 
 
 **Check logs**:
 ```bash
-aws logs tail /ecs/pdc-app --follow --region us-east-1
+aws logs tail /ecs/pdc-app --follow --region us-east-2
 ```
 
 **Common causes**:
@@ -378,7 +378,7 @@ aws logs tail /ecs/pdc-app --follow --region us-east-1
 aws ecs describe-services \
     --cluster pdc-cluster \
     --services pdc-app-service \
-    --region us-east-1
+    --region us-east-2
 ```
 
 ### Issue: Database connection errors
@@ -397,7 +397,7 @@ psql -h $DB_ENDPOINT -U postgres -d pdc_db
 
 ## Cost Estimation
 
-Approximate monthly costs (us-east-1):
+Approximate monthly costs (us-east-2):
 
 - **RDS db.t3.micro**: ~$15/month
 - **ECS Fargate** (2 tasks, 0.25 vCPU, 512MB): ~$15/month

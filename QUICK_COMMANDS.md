@@ -94,7 +94,7 @@ terraform output alb_dns_name
 terraform output database_endpoint
 
 # Login to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URL
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR_URL
 
 # Build and push image
 docker build -t pdc-app .
@@ -109,16 +109,16 @@ aws ecs update-service --cluster pdc-cluster --service pdc-app-service --force-n
 
 ```bash
 # View application logs
-aws logs tail /ecs/pdc-app --follow --region us-east-1
+aws logs tail /ecs/pdc-app --follow --region us-east-2
 
 # View ingestion logs
-aws logs tail /ecs/pdc-ingestion --follow --region us-east-1
+aws logs tail /ecs/pdc-ingestion --follow --region us-east-2
 
 # Check ECS service status
-aws ecs describe-services --cluster pdc-cluster --services pdc-app-service --region us-east-1
+aws ecs describe-services --cluster pdc-cluster --services pdc-app-service --region us-east-2
 
 # Check running tasks
-aws ecs list-tasks --cluster pdc-cluster --service-name pdc-app-service --region us-east-1
+aws ecs list-tasks --cluster pdc-cluster --service-name pdc-app-service --region us-east-2
 ```
 
 ## Git Operations

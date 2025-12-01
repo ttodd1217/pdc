@@ -11,7 +11,7 @@ terraform {
   backend "s3" {
     bucket = "pdc-terraform-state"
     key    = "pdc/terraform.tfstate"
-    region = "us-east-1"
+    region = "us-east-2"
   }
 }
 
@@ -261,24 +261,4 @@ resource "aws_lb_listener" "app" {
     target_group_arn = aws_lb_target_group.app.arn
   }
 }
-
-# Outputs
-output "db_endpoint" {
-  value       = aws_db_instance.main.endpoint
-  description = "RDS database endpoint"
-  sensitive   = true
-}
-
-output "alb_dns_name" {
-  value       = aws_lb.main.dns_name
-  description = "Application Load Balancer DNS name"
-}
-
-output "ecr_repository_url" {
-  value       = aws_ecr_repository.app.repository_url
-  description = "ECR repository URL"
-}
-
-
-
 

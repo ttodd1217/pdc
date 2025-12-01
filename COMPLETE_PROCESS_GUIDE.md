@@ -391,7 +391,7 @@ Check the Actions tab:
 aws configure
 # Enter: Access Key ID
 # Enter: Secret Access Key
-# Enter: Default region (e.g., us-east-1)
+# Enter: Default region (e.g., us-east-2)
 # Enter: Default output format (json)
 
 # Verify configuration
@@ -402,7 +402,7 @@ aws sts get-caller-identity
 
 ```bash
 # Create bucket
-aws s3 mb s3://pdc-terraform-state --region us-east-1
+aws s3 mb s3://pdc-terraform-state --region us-east-2
 
 # Enable versioning
 aws s3api put-bucket-versioning \
@@ -424,7 +424,7 @@ notepad terraform.tfvars
 
 Set these values:
 ```hcl
-aws_region       = "us-east-1"
+aws_region       = "us-east-2"
 db_instance_class = "db.t3.micro"
 db_username      = "postgres"
 db_password      = "YOUR_SECURE_PASSWORD_HERE"
@@ -440,13 +440,13 @@ sftp_username    = "sftp_user"
 aws secretsmanager create-secret \
     --name pdc/sftp-key \
     --secret-string file://C:/Users/wreed/ssh/id_ed25519 \
-    --region us-east-1
+    --region us-east-2
 
 # Store alert API key
 aws secretsmanager create-secret \
     --name pdc/alert-api-key \
     --secret-string "your-alert-api-key" \
-    --region us-east-1
+    --region us-east-2
 ```
 
 ### Step 6.5: Deploy Infrastructure
@@ -481,7 +481,7 @@ $ECR_URL = terraform output -raw ecr_repository_url
 echo $ECR_URL
 
 # Login to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URL
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR_URL
 
 # Build image
 cd ..
@@ -535,7 +535,7 @@ The Terraform configuration includes EventBridge rules for scheduled ingestion. 
 
 ```bash
 # Check EventBridge rule
-aws events describe-rule --name pdc-ingestion-schedule --region us-east-1
+aws events describe-rule --name pdc-ingestion-schedule --region us-east-2
 ```
 
 The ingestion runs every hour automatically.
@@ -545,10 +545,10 @@ The ingestion runs every hour automatically.
 **View logs:**
 ```bash
 # Application logs
-aws logs tail /ecs/pdc-app --follow --region us-east-1
+aws logs tail /ecs/pdc-app --follow --region us-east-2
 
 # Ingestion logs
-aws logs tail /ecs/pdc-ingestion --follow --region us-east-1
+aws logs tail /ecs/pdc-ingestion --follow --region us-east-2
 ```
 
 **Set up CloudWatch alarms:**
@@ -585,7 +585,7 @@ terraform output alb_dns_name
 aws acm request-certificate \
     --domain-name yourdomain.com \
     --validation-method DNS \
-    --region us-east-1
+    --region us-east-2
 
 # Update ALB listener to use HTTPS
 # (Update terraform/main.tf or use AWS Console)

@@ -30,7 +30,7 @@ fi
 echo ""
 echo "📦 Step 1: Setting up Terraform state bucket..."
 BUCKET_NAME="pdc-terraform-state"
-REGION=$(grep aws_region terraform/terraform.tfvars | cut -d'"' -f2 || echo "us-east-1")
+REGION=$(grep aws_region terraform/terraform.tfvars | cut -d'"' -f2 || echo "us-east-2")
 
 if ! aws s3 ls "s3://$BUCKET_NAME" 2>&1 >/dev/null; then
     echo "Creating S3 bucket: $BUCKET_NAME"

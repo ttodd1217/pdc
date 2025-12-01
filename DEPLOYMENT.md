@@ -17,7 +17,7 @@ This guide covers deploying the Portfolio Data Clearinghouse to AWS using Terraf
 ### 1. Create S3 Bucket for Terraform State
 
 ```bash
-aws s3 mb s3://pdc-terraform-state --region us-east-1
+aws s3 mb s3://pdc-terraform-state --region us-east-2
 aws s3api put-bucket-versioning \
     --bucket pdc-terraform-state \
     --versioning-configuration Status=Enabled
@@ -38,7 +38,7 @@ Add the following secrets to your GitHub repository:
 Copy `terraform/terraform.tfvars.example` to `terraform/terraform.tfvars` and update:
 
 ```hcl
-aws_region       = "us-east-1"
+aws_region       = "us-east-2"
 db_instance_class = "db.t3.micro"
 db_username      = "postgres"
 db_password      = "YOUR_SECURE_PASSWORD"
@@ -72,7 +72,7 @@ terraform apply tfplan
 ECR_URL=$(terraform output -raw ecr_repository_url)
 
 # Login to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URL
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR_URL
 
 # Build image
 docker build -t pdc-app .
@@ -111,7 +111,7 @@ Example EventBridge rule:
   "ScheduleExpression": "rate(1 hour)",
   "Targets": [
     {
-      "Arn": "arn:aws:lambda:us-east-1:ACCOUNT:function:ingest-files",
+      "Arn": "arn:aws:lambda:us-east-2:ACCOUNT:function:ingest-files",
       "Id": "1"
     }
   ]

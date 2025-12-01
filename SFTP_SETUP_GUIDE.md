@@ -161,13 +161,13 @@ aws iam create-role \
     }'
 
 # Create S3 bucket for SFTP files
-aws s3 mb s3://pdc-sftp-files --region us-east-1
+aws s3 mb s3://pdc-sftp-files --region us-east-2
 
 # Create Transfer Family server
 aws transfer create-server \
     --protocols SFTP \
     --identity-provider-type SERVICE_MANAGED \
-    --region us-east-1
+    --region us-east-2
 ```
 
 Note the `ServerId` from the output.
@@ -193,7 +193,7 @@ aws transfer create-user \
 ### 3.3 Configure Application
 
 ```bash
-SFTP_HOST=YOUR_SERVER_ID.server.transfer.us-east-1.amazonaws.com
+SFTP_HOST=YOUR_SERVER_ID.server.transfer.us-east-2.amazonaws.com
 SFTP_PORT=22
 SFTP_USERNAME=sftp_user
 SFTP_KEY_PATH=~/.ssh/id_ed25519
@@ -337,7 +337,7 @@ Store the SSH private key in AWS Secrets Manager:
 aws secretsmanager create-secret \
     --name pdc/sftp-key \
     --secret-string file://~/.ssh/id_ed25519 \
-    --region us-east-1
+    --region us-east-2
 ```
 
 The Terraform configuration automatically retrieves this secret for the ECS task.
