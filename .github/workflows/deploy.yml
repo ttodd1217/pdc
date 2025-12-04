@@ -32,6 +32,12 @@ jobs:
       working-directory: ./terraform
       run: terraform init
     
+    - name: Import Existing IAM Roles
+      working-directory: ./terraform
+      run: |
+        chmod +x import_roles.sh
+        ./import_roles.sh || echo "Import script completed with warnings (some roles may already be imported)"
+    
     - name: Terraform Plan
       working-directory: ./terraform
       run: terraform plan -out=tfplan
