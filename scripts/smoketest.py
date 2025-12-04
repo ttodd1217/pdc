@@ -6,6 +6,7 @@ Tests liveness and basic functionality of all endpoints.
 import sys
 import requests
 import os
+import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -24,6 +25,10 @@ if not os.environ.get('no_proxy'):
 # Get API URL with fallback - strip whitespace and use default if empty
 API_URL = (os.environ.get('API_URL') or '').strip() or 'http://localhost:5000'
 API_KEY = (os.environ.get('API_KEY') or '').strip() or 'dev-api-key'
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY = 10  # seconds between retries
 
 def test_health():
     """Test health check endpoint"""
@@ -142,52 +147,82 @@ def test_authentication():
         return False
 
 def main():
-    """Run all smoke tests"""
+    """Run all smoke tests with retry logic"""
     print(f"Running smoke tests against {API_URL}")
     print("=" * 50)
     
-    # Check if ALB is responding
-    try:
-        response = requests.head(f"{API_URL}/health", timeout=5)
-        if response.status_code == 503:
-            print("[INFO] ALB is responding but ECS tasks are initializing...")
-            print("[INFO] This is normal after deployment. Waiting for tasks to become healthy...")
-            print("[INFO] Continuing tests...\n")
-        elif response.status_code >= 500:
-            print(f"[INFO] ALB returned {response.status_code} - tasks are starting up...\n")
-    except Exception as e:
-        print(f"[ERROR] Cannot reach ALB: {str(e)}")
-        print("[ERROR] The application may not be deployed yet or the URL may be incorrect\n")
-    
-    tests = [
-        test_health,
-        test_metrics,
-        test_authentication,
-        test_blotter,
-        test_positions,
-        test_alarms,
-    ]
-    
-    results = []
-    for test in tests:
-        results.append(test())
-        print()
-    
-    print("=" * 50)
-    passed = sum(results)
-    total = len(results)
-    
-    if passed == total:
-        print(f"[SUCCESS] All {total} tests passed!")
-        print("[INFO] Application is healthy and all endpoints are working!")
-        sys.exit(0)
-    else:
+    # Retry loop
+    for attempt in range(1, MAX_RETRIES + 1):
+        if attempt > 1:
+            print(f"\n[INFO] Retry attempt {attempt} of {MAX_RETRIES}...")
+            print(f"[INFO] Waiting {RETRY_DELAY} seconds before retry...\n")
+            time.sleep(RETRY_DELAY)
+        
+        # Check if ALB is responding
+        try:
+            response = requests.head(f"{API_URL}/health", timeout=5)
+            if response.status_code == 503:
+                if attempt == 1:
+                    print("[INFO] ALB is responding but ECS tasks are initializing...")
+                    print("[INFO] This is normal after deployment. Tasks will be ready shortly...\n")
+                else:
+                    print(f"[INFO] Attempt {attempt}: Still waiting for ECS tasks to become healthy...")
+            elif response.status_code >= 500:
+                print(f"[INFO] Attempt {attempt}: ALB returned {response.status_code} - tasks are starting up...")
+        except Exception as e:
+            if attempt == 1:
+                print(f"[ERROR] Cannot reach ALB: {str(e)}")
+                print("[ERROR] The application may not be deployed yet or the URL may be incorrect\n")
+            else:
+                print(f"[INFO] Attempt {attempt}: Still unable to reach ALB, retrying...\n")
+        
+        tests = [
+            test_health,
+            test_metrics,
+            test_authentication,
+            test_blotter,
+            test_positions,
+            test_alarms,
+        ]
+        
+        results = []
+        for test in tests:
+            results.append(test())
+            print()
+        
+        passed = sum(results)
+        total = len(results)
+        
+        # If all tests pass, exit successfully
+        if passed == total:
+            print("=" * 50)
+            print(f"[SUCCESS] All {total} tests passed!")
+            print("[INFO] Application is healthy and all endpoints are working!")
+            sys.exit(0)
+        
+        # If this isn't the last attempt and all tests failed, retry
+        if attempt < MAX_RETRIES and passed == 0:
+            print("=" * 50)
+            print(f"[INFO] All tests failed (attempt {attempt}/{MAX_RETRIES}). Retrying...\n")
+            continue
+        
+        # If last attempt or some tests passed, show results and exit
+        print("=" * 50)
         failed = total - passed
-        print(f"[FAILED] {failed} of {total} tests failed")
-        if failed == total:
-            print("[INFO] If this is immediately after deployment, wait a few minutes and retry.")
-            print("[INFO] ECS tasks typically take 2-3 minutes to initialize and pass health checks.")
-        sys.exit(1)
+        if passed == total:
+            print(f"[SUCCESS] All {total} tests passed!")
+            print("[INFO] Application is healthy and all endpoints are working!")
+            sys.exit(0)
+        else:
+            print(f"[FAILED] {failed} of {total} tests failed (attempt {attempt}/{MAX_RETRIES})")
+            if attempt == MAX_RETRIES and passed == 0:
+                print("[INFO] Maximum retries reached. ECS tasks may still be initializing.")
+                print("[INFO] Manual retry after 1-2 minutes may succeed.")
+            sys.exit(1)
+    
+    # Should not reach here, but exit with error if we do
+    print("[ERROR] Unexpected exit from retry loop")
+    sys.exit(1)
 
 if __name__ == '__main__':
     main()
