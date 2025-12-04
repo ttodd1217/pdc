@@ -11,8 +11,9 @@ resource "aws_cloudwatch_event_rule" "ingestion_schedule" {
 
 # IAM Role for EventBridge to invoke ECS Task
 resource "aws_iam_role" "eventbridge_ecs" {
-  name = "pdc-eventbridge-ecs-role"
-  path = "/interview/"
+  name             = "pdc-eventbridge-ecs-role"
+  path             = "/interview/"
+  permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
