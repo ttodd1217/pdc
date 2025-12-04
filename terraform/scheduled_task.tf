@@ -55,6 +55,10 @@ resource "aws_iam_role_policy" "eventbridge_ecs" {
       }
     ]
   })
+
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 # ECS Task Definition for Ingestion

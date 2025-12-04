@@ -236,6 +236,10 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
       }
     ]
   })
+
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 # IAM Role for ECS Task (Task Role - for app permissions)
@@ -276,6 +280,10 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
       }
     ]
   })
+
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 # Application Load Balancer
