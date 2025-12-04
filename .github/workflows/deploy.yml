@@ -64,6 +64,24 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
     
+    - name: Update ECS Service with New Image
+      run: |
+        # Get the latest task definition
+        TASK_DEF=$(aws ecs describe-task-definition --task-definition pdc-app --region ${{ env.AWS_REGION }} --query 'taskDefinition' --output json)
+        
+        # Update the image in the task definition
+        NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "${{ steps.ecr.outputs.url }}:latest" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+        
+        # Register the new task definition
+        NEW_TASK_ARN=$(aws ecs register-task-definition --region ${{ env.AWS_REGION }} --cli-input-json "$(echo $NEW_TASK_DEF)" --query 'taskDefinition.taskDefinitionArn' --output text)
+        
+        echo "New task definition: $NEW_TASK_ARN"
+        
+        # Update the service to use the new task definition
+        aws ecs update-service --cluster pdc-cluster --service pdc-app-service --task-definition $NEW_TASK_ARN --region ${{ env.AWS_REGION }}
+        
+        echo "ECS service updated with new task definition"
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
