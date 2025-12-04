@@ -189,7 +189,7 @@ resource "aws_ecr_repository" "app" {
 
 # IAM Role for ECS Task (Execution Role)
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "interview/pdc-ecs-task-execution-role"
+  name = "interview-pdc-ecs-task-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -235,7 +235,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
 
 # IAM Role for ECS Task (Task Role - for app permissions)
 resource "aws_iam_role" "ecs_task_role" {
-  name = "interview/pdc-ecs-task-app-role"
+  name = "interview-pdc-ecs-task-app-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
