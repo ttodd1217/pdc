@@ -1,4 +1,5 @@
-from flask import request, jsonify, current_app
+from flask import current_app, jsonify, request
+
 from app.config import Config
 
 

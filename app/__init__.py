@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
+
 from app.config import Config
 
 db = SQLAlchemy()
@@ -11,8 +12,8 @@ def create_app(config_class=Config):
 
     db.init_app(app)
 
-    from app.routes import api_bp, register_health_routes
     from app.middleware import api_key_middleware
+    from app.routes import api_bp, register_health_routes
 
     app.before_request(api_key_middleware)
     app.register_blueprint(api_bp, url_prefix="/api")

@@ -1,6 +1,8 @@
-from flask import Blueprint, request, jsonify
 from datetime import datetime
-from sqlalchemy import func, case
+
+from flask import Blueprint, jsonify, request
+from sqlalchemy import case, func
+
 from app import db
 from app.models import Trade
 

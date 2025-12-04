@@ -1,8 +1,10 @@
-import paramiko
+import logging
 import os
 from pathlib import Path
+
+import paramiko
+
 from app.config import Config
-import logging
 
 logger = logging.getLogger(__name__)
 

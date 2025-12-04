@@ -1,9 +1,11 @@
-import pytest
 from datetime import date
+
+import pytest
+
 from app import create_app, db
 from app.config import Config
-from app.services.file_ingestion import FileIngestionService
 from app.models import Trade
+from app.services.file_ingestion import FileIngestionService
 
 
 class TestConfig(Config):
@@ -73,8 +75,8 @@ class TestFileIngestion:
         assert FileIngestionService.detect_format(format2_content) == "format2"
 
     def test_ingest_file_format1(self, app):
-        import tempfile
         import os
+        import tempfile
 
         file_content = """TradeDate,AccountID,Ticker,Quantity,Price,TradeType,SettlementDate
 2025-01-15,ACC001,AAPL,100,185.50,BUY,2025-01-17"""
@@ -94,8 +96,8 @@ class TestFileIngestion:
             os.remove(tmp_path)
 
     def test_ingest_file_format2(self, app):
-        import tempfile
         import os
+        import tempfile
 
         file_content = """20250115|ACC001|AAPL|100|18550.00|CUSTODIAN_A"""
 

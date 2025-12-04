@@ -1,8 +1,10 @@
-import os
-import requests
 import logging
-from app.config import Config
+import os
 from datetime import datetime
+
+import requests
+
+from app.config import Config
 
 logger = logging.getLogger(__name__)
 

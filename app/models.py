@@ -1,6 +1,8 @@
-from app import db
 from datetime import datetime
+
 from sqlalchemy import Index
+
+from app import db
 
 
 class Trade(db.Model):

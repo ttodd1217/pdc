@@ -1,9 +1,10 @@
 import csv
 import io
+import logging
 from datetime import datetime
+
 from app import db
 from app.models import Trade
-import logging
 
 logger = logging.getLogger(__name__)
 
