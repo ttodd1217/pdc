@@ -30,10 +30,10 @@ def test_health():
         data = response.json()
         assert 'status' in data
         assert 'database' in data
-        print(f"✓ Health check passed: {data['status']}")
+        print(f"[PASS] Health check passed: {data['status']}")
         return True
     except Exception as e:
-        print(f"✗ Health check failed: {str(e)}")
+        print(f"[FAIL] Health check failed: {str(e)}")
         return False
 
 def test_metrics():
@@ -44,10 +44,10 @@ def test_metrics():
         assert response.status_code == 200
         data = response.json()
         assert 'total_trades' in data
-        print(f"✓ Metrics check passed: {data['total_trades']} total trades")
+        print(f"[PASS] Metrics check passed: {data['total_trades']} total trades")
         return True
     except Exception as e:
-        print(f"✗ Metrics check failed: {str(e)}")
+        print(f"[FAIL] Metrics check failed: {str(e)}")
         return False
 
 def test_blotter():
@@ -65,10 +65,10 @@ def test_blotter():
         data = response.json()
         assert 'date' in data
         assert 'records' in data
-        print(f"✓ Blotter check passed: {data['count']} records for {test_date}")
+        print(f"[PASS] Blotter check passed: {data['count']} records for {test_date}")
         return True
     except Exception as e:
-        print(f"✗ Blotter check failed: {str(e)}")
+        print(f"[FAIL] Blotter check failed: {str(e)}")
         return False
 
 def test_positions():
@@ -86,10 +86,10 @@ def test_positions():
         data = response.json()
         assert 'date' in data
         assert 'positions' in data
-        print(f"✓ Positions check passed: {len(data['positions'])} positions for {test_date}")
+        print(f"[PASS] Positions check passed: {len(data['positions'])} positions for {test_date}")
         return True
     except Exception as e:
-        print(f"✗ Positions check failed: {str(e)}")
+        print(f"[FAIL] Positions check failed: {str(e)}")
         return False
 
 def test_alarms():
@@ -107,10 +107,10 @@ def test_alarms():
         data = response.json()
         assert 'date' in data
         assert 'alarms' in data
-        print(f"✓ Alarms check passed: {len(data['alarms'])} alarms for {test_date}")
+        print(f"[PASS] Alarms check passed: {len(data['alarms'])} alarms for {test_date}")
         return True
     except Exception as e:
-        print(f"✗ Alarms check failed: {str(e)}")
+        print(f"[FAIL] Alarms check failed: {str(e)}")
         return False
 
 def test_authentication():
@@ -124,10 +124,10 @@ def test_authentication():
             timeout=5
         )
         assert response.status_code == 401
-        print("✓ Authentication check passed: Unauthorized request correctly rejected")
+        print("[PASS] Authentication check passed: Unauthorized request correctly rejected")
         return True
     except Exception as e:
-        print(f"✗ Authentication check failed: {str(e)}")
+        print(f"[FAIL] Authentication check failed: {str(e)}")
         return False
 
 def main():
@@ -154,10 +154,10 @@ def main():
     total = len(results)
     
     if passed == total:
-        print(f"✓ All {total} tests passed!")
+        print(f"[SUCCESS] All {total} tests passed!")
         sys.exit(0)
     else:
-        print(f"✗ {total - passed} of {total} tests failed")
+        print(f"[FAILED] {total - passed} of {total} tests failed")
         sys.exit(1)
 
 if __name__ == '__main__':
