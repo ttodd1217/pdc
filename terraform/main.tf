@@ -187,9 +187,88 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
-# IAM Role for ECS Task
-data "aws_iam_role" "ecs_task" {
+# IAM Role for ECS Task (Execution Role)
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "pdc-ecs-task-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Attach the standard ECS Task Execution Role policy
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# Allow ECS Task to access Secrets Manager
+resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
+  name = "pdc-ecs-task-execution-secrets"
+  role = aws_iam_role.ecs_task_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.sftp_key.arn,
+          aws_secretsmanager_secret.alert_api_key.arn
+        ]
+      }
+    ]
+  })
+}
+
+# IAM Role for ECS Task (Task Role - for app permissions)
+resource "aws_iam_role" "ecs_task_role" {
   name = "pdc-ecs-task-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Allow ECS Task to access S3, CloudWatch, etc.
+resource "aws_iam_role_policy" "ecs_task_permissions" {
+  name = "pdc-ecs-task-permissions"
+  role = aws_iam_role.ecs_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "${aws_cloudwatch_log_group.app.arn}:*"
+      }
+    ]
+  })
 }
 
 # Application Load Balancer
@@ -208,10 +287,11 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name     = "pdc-app-tg"
-  port     = 5000
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "pdc-app-tg"
+  port        = 5000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
 
   health_check {
     enabled             = true
