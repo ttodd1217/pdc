@@ -40,6 +40,30 @@ jobs:
       working-directory: ./terraform
       run: terraform apply -auto-approve tfplan
     
+    - name: Get ECR Repository URL
+      id: ecr
+      working-directory: ./terraform
+      run: |
+        ECR_URL=$(terraform output -raw ecr_repository_url)
+        echo "url=$ECR_URL" >> $GITHUB_OUTPUT
+        echo "ECR Repository: $ECR_URL"
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to AWS ECR
+      run: |
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $(echo ${{ steps.ecr.outputs.url }} | cut -d/ -f1)
+    
+    - name: Build and Push Docker Image to ECR
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.ecr.outputs.url }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
