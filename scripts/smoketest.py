@@ -27,6 +27,9 @@ def test_health():
     print("Testing /health endpoint...")
     try:
         response = requests.get(f"{API_URL}/health", timeout=5)
+        if response.status_code == 503:
+            print(f"[FAIL] Health check failed: ALB returned 503 - ECS tasks not ready yet (initializing...)")
+            return False
         assert response.status_code == 200
         data = response.json()
         assert 'status' in data
@@ -34,7 +37,11 @@ def test_health():
         print(f"[PASS] Health check passed: {data['status']}")
         return True
     except Exception as e:
-        print(f"[FAIL] Health check failed: {str(e)}")
+        error_str = str(e)
+        if '503' in error_str:
+            print(f"[FAIL] Health check failed: ALB returned 503 - ECS tasks not ready yet (initializing...)")
+        else:
+            print(f"[FAIL] Health check failed: {error_str}")
         return False
 
 def test_metrics():
@@ -136,6 +143,19 @@ def main():
     print(f"Running smoke tests against {API_URL}")
     print("=" * 50)
     
+    # Check if ALB is responding
+    try:
+        response = requests.head(f"{API_URL}/health", timeout=5)
+        if response.status_code == 503:
+            print("[INFO] ALB is responding but ECS tasks are initializing...")
+            print("[INFO] This is normal after deployment. Waiting for tasks to become healthy...")
+            print("[INFO] Continuing tests...\n")
+        elif response.status_code >= 500:
+            print(f"[INFO] ALB returned {response.status_code} - tasks are starting up...\n")
+    except Exception as e:
+        print(f"[ERROR] Cannot reach ALB: {str(e)}")
+        print("[ERROR] The application may not be deployed yet or the URL may be incorrect\n")
+    
     tests = [
         test_health,
         test_metrics,
@@ -156,9 +176,14 @@ def main():
     
     if passed == total:
         print(f"[SUCCESS] All {total} tests passed!")
+        print("[INFO] Application is healthy and all endpoints are working!")
         sys.exit(0)
     else:
-        print(f"[FAILED] {total - passed} of {total} tests failed")
+        failed = total - passed
+        print(f"[FAILED] {failed} of {total} tests failed")
+        if failed == total:
+            print("[INFO] If this is immediately after deployment, wait a few minutes and retry.")
+            print("[INFO] ECS tasks typically take 2-3 minutes to initialize and pass health checks.")
         sys.exit(1)
 
 if __name__ == '__main__':
