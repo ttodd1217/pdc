@@ -236,12 +236,6 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
       }
     ]
   })
-
-  lifecycle {
-    # Prevent Terraform from trying to replace existing policies
-    # since we don't have permission to delete them
-    ignore_changes = [policy]
-  }
 }
 
 # IAM Role for ECS Task (Task Role - for app permissions)
@@ -282,12 +276,6 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
       }
     ]
   })
-
-  lifecycle {
-    # Prevent Terraform from trying to replace existing policies
-    # since we don't have permission to delete them
-    ignore_changes = [policy]
-  }
 }
 
 # Application Load Balancer
