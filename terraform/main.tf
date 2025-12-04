@@ -287,7 +287,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name        = "pdc-app-tg"
+  name        = "pdc-app-tg-fargate"
   port        = 5000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
