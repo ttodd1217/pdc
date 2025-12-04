@@ -238,7 +238,9 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
   })
 
   lifecycle {
-    create_before_destroy = false
+    # Prevent Terraform from trying to replace existing policies
+    # since we don't have permission to delete them
+    ignore_changes = [policy]
   }
 }
 
@@ -282,7 +284,9 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
   })
 
   lifecycle {
-    create_before_destroy = false
+    # Prevent Terraform from trying to replace existing policies
+    # since we don't have permission to delete them
+    ignore_changes = [policy]
   }
 }
 

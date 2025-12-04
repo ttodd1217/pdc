@@ -57,7 +57,9 @@ resource "aws_iam_role_policy" "eventbridge_ecs" {
   })
 
   lifecycle {
-    create_before_destroy = false
+    # Prevent Terraform from trying to replace existing policies
+    # since we don't have permission to delete them
+    ignore_changes = [policy]
   }
 }
 
