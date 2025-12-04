@@ -210,9 +210,9 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   })
 
   lifecycle {
-    # Ignore path changes to avoid forcing role replacement
-    # Roles were created with path="/" but we want to manage them with path="/interview/"
-    ignore_changes = [path]
+    # Ignore path and permissions_boundary changes to avoid forcing role replacement
+    # Roles were created with path="/" and without permissions_boundary
+    ignore_changes = [path, permissions_boundary]
   }
 }
 
@@ -269,9 +269,9 @@ resource "aws_iam_role" "ecs_task_role" {
   })
 
   lifecycle {
-    # Ignore path changes to avoid forcing role replacement
-    # Roles were created with path="/" but we want to manage them with path="/interview/"
-    ignore_changes = [path]
+    # Ignore path and permissions_boundary changes to avoid forcing role replacement
+    # Roles were created with path="/" and without permissions_boundary
+    ignore_changes = [path, permissions_boundary]
   }
 }
 

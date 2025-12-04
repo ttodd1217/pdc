@@ -29,9 +29,9 @@ resource "aws_iam_role" "eventbridge_ecs" {
   })
 
   lifecycle {
-    # Ignore path changes to avoid forcing role replacement
-    # Roles were created with path="/" but we want to manage them with path="/interview/"
-    ignore_changes = [path]
+    # Ignore path and permissions_boundary changes to avoid forcing role replacement
+    # Roles were created with path="/" and without permissions_boundary
+    ignore_changes = [path, permissions_boundary]
   }
 }
 
