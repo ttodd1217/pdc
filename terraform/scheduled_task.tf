@@ -55,6 +55,13 @@ resource "aws_iam_role_policy" "eventbridge_ecs" {
       }
     ]
   })
+
+  lifecycle {
+    # Prevent Terraform from trying to replace existing policies
+    # Since we cannot delete them due to permissions boundary restrictions
+    prevent_destroy = true
+    ignore_changes  = [policy]
+  }
 }
 
 # ECS Task Definition for Ingestion
