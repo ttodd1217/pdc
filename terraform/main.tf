@@ -208,6 +208,12 @@ resource "aws_iam_role" "ecs_task_execution_role" {
       }
     ]
   })
+
+  lifecycle {
+    # Ignore path changes to avoid forcing role replacement
+    # Roles were created with path="/" but we want to manage them with path="/interview/"
+    ignore_changes = [path]
+  }
 }
 
 # Attach the standard ECS Task Execution Role policy
@@ -238,10 +244,8 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
   })
 
   lifecycle {
-    # Prevent Terraform from trying to replace existing policies
-    # Since we cannot delete them due to permissions boundary restrictions
-    prevent_destroy = true
-    ignore_changes  = [policy]
+    # Ignore policy changes if they already exist to avoid replacement
+    ignore_changes = [policy]
   }
 }
 
@@ -263,6 +267,12 @@ resource "aws_iam_role" "ecs_task_role" {
       }
     ]
   })
+
+  lifecycle {
+    # Ignore path changes to avoid forcing role replacement
+    # Roles were created with path="/" but we want to manage them with path="/interview/"
+    ignore_changes = [path]
+  }
 }
 
 # Allow ECS Task to access S3, CloudWatch, etc.
@@ -285,10 +295,8 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
   })
 
   lifecycle {
-    # Prevent Terraform from trying to replace existing policies
-    # Since we cannot delete them due to permissions boundary restrictions
-    prevent_destroy = true
-    ignore_changes  = [policy]
+    # Ignore policy changes if they already exist to avoid replacement
+    ignore_changes = [policy]
   }
 }
 
