@@ -235,7 +235,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
 
 # IAM Role for ECS Task (Task Role - for app permissions)
 resource "aws_iam_role" "ecs_task_role" {
-  name = "pdc-ecs-task-role"
+  name = "pdc-ecs-task-app-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -303,8 +303,15 @@ resource "aws_lb_target_group" "app" {
     matcher             = "200"
   }
 
+  # Deregistration delay to drain connections gracefully
+  deregistration_delay = 30
+
   tags = {
     Name = "pdc-app-tg"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
