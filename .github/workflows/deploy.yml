@@ -50,9 +50,22 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Get ALB DNS Name
+      id: alb
+      working-directory: ./terraform
+      run: |
+        ALB_DNS=$(terraform output -raw alb_dns_name)
+        echo "dns_name=$ALB_DNS" >> $GITHUB_OUTPUT
+        echo "ALB DNS Name: $ALB_DNS"
+    
+    - name: Wait for ALB to be ready
+      run: |
+        echo "Waiting 30 seconds for ALB and ECS tasks to be ready..."
+        sleep 30
+    
     - name: Run Smoke Tests
       env:
-        API_URL: ${{ secrets.API_URL }}
+        API_URL: ${{ format('http://{0}', steps.alb.outputs.dns_name) }}
         API_KEY: ${{ secrets.API_KEY }}
       run: |
         python scripts/smoketest.py

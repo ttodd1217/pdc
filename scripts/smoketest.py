@@ -18,8 +18,9 @@ if not os.environ.get('NO_PROXY'):
 if not os.environ.get('no_proxy'):
     os.environ['no_proxy'] = _NO_PROXY_DEFAULT
 
-API_URL = os.environ.get('API_URL', 'http://localhost:5001')
-API_KEY = os.environ.get('API_KEY', 'dev-api-key')
+# Get API URL with fallback - strip whitespace and use default if empty
+API_URL = (os.environ.get('API_URL') or '').strip() or 'http://localhost:5000'
+API_KEY = (os.environ.get('API_KEY') or '').strip() or 'dev-api-key'
 
 def test_health():
     """Test health check endpoint"""
