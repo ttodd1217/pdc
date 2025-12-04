@@ -9,7 +9,10 @@ import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-load_dotenv()
+# Only load .env for local development, not in CI/deployment environments
+# In CI, environment variables should be set explicitly by the workflow
+if not os.environ.get('GITHUB_ACTIONS') and not os.environ.get('CI'):
+    load_dotenv()
 
 # Ensure local requests bypass corporate/system proxies
 _NO_PROXY_DEFAULT = 'localhost,127.0.0.1,::1'
