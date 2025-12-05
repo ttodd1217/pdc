@@ -10,9 +10,11 @@ resource "aws_cloudwatch_event_rule" "ingestion_schedule" {
 }
 
 # IAM Role for EventBridge to invoke ECS Task
+# This creates a NEW role at /interview/ path with permissions boundary
+# Note: Old role at "/" path will remain orphaned in AWS but unused
 resource "aws_iam_role" "eventbridge_ecs" {
-  name             = "pdc-eventbridge-ecs-role"
-  path             = "/interview/"
+  name                 = "pdc-eventbridge-ecs-role"
+  path                 = "/interview/"
   permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
   assume_role_policy = jsonencode({
@@ -27,13 +29,8 @@ resource "aws_iam_role" "eventbridge_ecs" {
       }
     ]
   })
-
-  lifecycle {
-    # Ignore path and permissions_boundary changes to avoid forcing role replacement
-    # Roles were created with path="/" and without permissions_boundary
-    ignore_changes = [path, permissions_boundary]
-  }
 }
+
 
 resource "aws_iam_role_policy" "eventbridge_ecs" {
   name = "pdc-eventbridge-ecs-policy"
@@ -62,10 +59,6 @@ resource "aws_iam_role_policy" "eventbridge_ecs" {
     ]
   })
 
-  lifecycle {
-    # Ignore policy changes if they already exist to avoid replacement
-    ignore_changes = [policy]
-  }
 }
 
 # ECS Task Definition for Ingestion

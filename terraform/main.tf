@@ -191,9 +191,11 @@ resource "aws_ecr_repository" "app" {
 }
 
 # IAM Role for ECS Task (Execution Role)
+# This creates a NEW role at /interview/ path with permissions boundary
+# Note: Old role at "/" path will remain orphaned in AWS but unused
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name             = "pdc-ecs-task-execution-role"
-  path             = "/interview/"
+  name                 = "pdc-ecs-task-execution-role"
+  path                 = "/interview/"
   permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
   assume_role_policy = jsonencode({
@@ -208,13 +210,8 @@ resource "aws_iam_role" "ecs_task_execution_role" {
       }
     ]
   })
-
-  lifecycle {
-    # Ignore path and permissions_boundary changes to avoid forcing role replacement
-    # Roles were created with path="/" and without permissions_boundary
-    ignore_changes = [path, permissions_boundary]
-  }
 }
+
 
 # Attach the standard ECS Task Execution Role policy
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
@@ -243,16 +240,14 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
     ]
   })
 
-  lifecycle {
-    # Ignore policy changes if they already exist to avoid replacement
-    ignore_changes = [policy]
-  }
 }
 
 # IAM Role for ECS Task (Task Role - for app permissions)
+# This creates a NEW role at /interview/ path with permissions boundary
+# Note: Old role at "/" path will remain orphaned in AWS but unused
 resource "aws_iam_role" "ecs_task_role" {
-  name             = "pdc-ecs-task-app-role"
-  path             = "/interview/"
+  name                 = "pdc-ecs-task-app-role"
+  path                 = "/interview/"
   permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
   assume_role_policy = jsonencode({
@@ -267,13 +262,8 @@ resource "aws_iam_role" "ecs_task_role" {
       }
     ]
   })
-
-  lifecycle {
-    # Ignore path and permissions_boundary changes to avoid forcing role replacement
-    # Roles were created with path="/" and without permissions_boundary
-    ignore_changes = [path, permissions_boundary]
-  }
 }
+
 
 # Allow ECS Task to access S3, CloudWatch, etc.
 resource "aws_iam_role_policy" "ecs_task_permissions" {
@@ -294,10 +284,6 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
     ]
   })
 
-  lifecycle {
-    # Ignore policy changes if they already exist to avoid replacement
-    ignore_changes = [policy]
-  }
 }
 
 # Application Load Balancer
