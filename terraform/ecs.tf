@@ -23,7 +23,7 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         {
           name  = "DATABASE_URL"
-          value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.main.endpoint}:5432/pdc_db"
+          value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.main.endpoint}/pdc_db"
         },
         {
           name  = "API_KEY"
