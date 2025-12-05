@@ -97,6 +97,14 @@ resource "aws_security_group" "app" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+    description = "Allow ALB to reach Flask app on port 5000"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
