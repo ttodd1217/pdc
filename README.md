@@ -1,165 +1,492 @@
-# Portfolio Data Clearinghouse (PDC)
+# PDC (Position Data Center) Application
 
-A simplified data clearinghouse system that ingests trade files from an SFTP server and provides API endpoints for querying portfolio data and compliance violations.
+A Flask-based application for ingesting, storing, and querying trade data with REST API endpoints for blotter, positions, and alarms. Deployed on AWS ECS with automated CI/CD via GitHub Actions.
 
-## Features
+## 📋 Table of Contents
 
-- **File Ingestion**: Supports two file formats (CSV and pipe-delimited) from SFTP server
-- **SFTP Integration**: SSH key-based authentication for secure file transfer
-- **REST API**: Three endpoints for querying trade data, positions, and compliance alarms
-- **Compliance Monitoring**: Automatically detects holdings exceeding 20% threshold
-- **CI/CD Pipeline**: GitHub Actions with Terraform for AWS deployment
-- **Observability**: Health checks and metrics endpoints
-- **Alerting**: Integration with alerting service for compliance violations and ingestion failures
-- **Security**: API key authentication
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Local Development](#local-development)
+- [AWS Deployment](#aws-deployment)
+- [API Endpoints](#api-endpoints)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
 
-## Project Structure
+## ✨ Features
+
+- **SFTP File Ingestion**: Automated ingestion of trade data files via SFTP
+- **REST API**: Query blotter, positions, and alarms with API key authentication
+- **Scheduled Tasks**: EventBridge-triggered ECS tasks for periodic data ingestion
+- **Health Monitoring**: Health check and metrics endpoints for observability
+- **AWS Infrastructure**: Fully automated deployment with Terraform
+- **CI/CD Pipeline**: GitHub Actions workflow for automated deployments
+
+## 🏗️ Architecture
+
+### AWS Infrastructure
 
 ```
-PDC/
-├── app/
-│   ├── __init__.py          # Flask app factory
-│   ├── config.py            # Configuration
-│   ├── models.py            # Database models
-│   ├── routes.py            # API endpoints
-│   ├── middleware.py        # API key authentication
-│   └── services/
-│       ├── sftp_service.py      # SFTP file retrieval
-│       ├── file_ingestion.py    # File parsing and ingestion
-│       ├── ingestion_worker.py  # File processing orchestration
-│       └── alerting_service.py  # Alert sending
-├── tests/                   # Unit tests
-├── terraform/              # Infrastructure as code
-├── .github/workflows/      # CI/CD pipelines
-├── requirements.txt        # Python dependencies
-└── run.py                  # Application entry point
+┌─────────────────┐
+│  Application    │
+│  Load Balancer  │
+└────────┬────────┘
+         │
+    ┌────▼────┐
+    │  ECS    │
+    │ Service │
+    │ (Fargate)│
+    └────┬────┘
+         │
+    ┌────▼────┐      ┌──────────┐
+    │  RDS    │      │  EventBridge │
+    │PostgreSQL│      │  (Scheduled) │
+    └─────────┘      └─────┬─────┘
+                           │
+                      ┌────▼────┐
+                      │  ECS    │
+                      │  Task   │
+                      │(Ingestion)│
+                      └─────────┘
 ```
 
-## Setup
+### Components
 
-**📖 For complete setup instructions, see [SETUP_GUIDE.md](SETUP_GUIDE.md)**
+- **VPC**: Isolated network with public subnets
+- **Application Load Balancer (ALB)**: Routes traffic to ECS tasks
+- **ECS Fargate**: Container orchestration for the Flask application
+- **RDS PostgreSQL**: Managed database for trade data
+- **ECR**: Docker image registry
+- **EventBridge**: Scheduled ingestion tasks
+- **CloudWatch**: Logging and monitoring
 
-### Quick Start (5 Minutes)
+## 📦 Prerequisites
 
-1. **Create virtual environment**:
+### Local Development
+
+- Python 3.11+
+- SQLite (included with Python) or PostgreSQL (for production-like setup)
+- Git
+- Virtual environment (venv)
+- Docker (optional, for SFTP testing)
+
+### AWS Deployment
+
+- AWS Account with appropriate IAM permissions
+- Terraform >= 1.0
+- Docker (for building images)
+- AWS CLI configured
+- GitHub repository with Actions enabled
+
+## 🚀 Local Development
+
+### 1. Clone Repository
+
+```bash
+git clone <repository-url>
+cd vest
+```
+
+### 2. Create Virtual Environment
+
 ```bash
 python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Mac/Linux
+
+# Windows
+venv\Scripts\activate
+
+# Linux/Mac
+source venv/bin/activate
 ```
 
-2. **Install dependencies**:
+### 3. Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Create `.env` file**:
-```bash
+### 4. Configure Environment
+
+Create a `.env` file in the root directory:
+
+```env
+# API URL for smoke tests
+API_URL="http://127.0.0.1:5001"
+
+# Database - Use SQLite for easy local setup
 DATABASE_URL=sqlite:///pdc.db
+
+# For PostgreSQL (alternative):
+# DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pdc_db
+
+# API Security
 API_KEY=dev-api-key
+SECRET_KEY=dev-secret-key-change-in-production
+
+# SFTP Configuration (optional for local dev)
+# Note: SFTP_HOST_PORT is for Docker port mapping
+SFTP_HOST='127.0.0.1'
+SFTP_HOST_PORT=3022    # host port defined in docker-compose
+SFTP_PORT=3022         # the port the Python app connects to
+SFTP_USERNAME=sftp_user
+SFTP_KEY_PATH=~/.ssh/id_pdc
+SFTP_REMOTE_PATH=/uploads
+SFTP_PROCESSED_PATH=/processed
+
+# Alerting (optional for now)
+ALERT_SERVICE_URL=http://localhost:5002/alerts
+ALERT_API_KEY=alert-api-key
 ```
 
-4. **Initialize database**:
+**Note**: The application will automatically use SQLite (`pdc.db`) if `DATABASE_URL` is set to `sqlite:///pdc.db`. For production-like testing, you can use PostgreSQL instead.
+
+### 5. Set Up Database
+
+**For SQLite (default)**: No setup needed! The database file will be created automatically.
+
+**For PostgreSQL (optional)**:
 ```bash
-python -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all()"
+# Create database
+createdb pdc_db
+
+# Or using psql
+psql -U postgres -c "CREATE DATABASE pdc_db;"
 ```
 
-5. **Run the application**:
+### 6. Initialize Database Schema
+
+```bash
+python -c "from app import create_app, db; from app.config import Config; app = create_app(Config); app.app_context().push(); db.create_all()"
+```
+
+### 7. Run Application
+
 ```bash
 python run.py
 ```
 
-6. **Test it**:
-```bash
-# Health check
-curl http://localhost:5000/health
+The application will be available at `http://127.0.0.1:5001`
 
-# API endpoint
-curl -H "X-API-Key: dev-api-key" "http://localhost:5000/api/blotter?date=2025-01-15"
+### 8. Run Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test file
+pytest tests/test_routes.py
 ```
+
+## ☁️ AWS Deployment
 
 ### Prerequisites
 
-- Python 3.9+
-- PostgreSQL (or SQLite for local development)
-- SSH key for SFTP access (optional for local testing)
-- AWS account (for deployment)
+1. **AWS IAM Permissions**: Your AWS account must have permissions to create:
+   - VPC, Subnets, Security Groups
+   - ECS Clusters, Services, Task Definitions
+   - RDS Instances
+   - ALB, Target Groups, Listeners
+   - ECR Repositories
+   - IAM Roles and Policies (under `/interview/` path)
+   - EventBridge Rules
 
-## API Endpoints
+2. **Terraform Backend**: S3 bucket for Terraform state
+   - Bucket: `pdc-terraform-state`
+   - Region: `us-east-2`
 
-All endpoints require an API key in the `X-API-Key` header or `api_key` query parameter.
+3. **GitHub Secrets**: Configure in your repository settings:
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
 
-### GET /api/blotter?date=YYYY-MM-DD
-Returns all trade records for the specified date.
+### Terraform Configuration
 
-### GET /api/positions?date=YYYY-MM-DD
-Returns position percentages by ticker for each account.
+1. **Copy example variables file**:
 
-### GET /api/alarms?date=YYYY-MM-DD
-Returns accounts with holdings exceeding 20% threshold.
-
-### GET /health
-Health check endpoint (no authentication required).
-
-### GET /metrics
-Basic metrics endpoint (no authentication required).
-
-## File Formats
-
-### Format 1 (CSV)
-```
-TradeDate,AccountID,Ticker,Quantity,Price,TradeType,SettlementDate
-2025-01-15,ACC001,AAPL,100,185.50,BUY,2025-01-17
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
 ```
 
-### Format 2 (Pipe-delimited)
+2. **Edit `terraform.tfvars`**:
+
+```hcl
+aws_region = "us-east-2"
+db_instance_class = "db.t3.micro"
+db_username = "postgres"
+db_password = "your-secure-password"
+api_key = "your-api-key"
+sftp_host = "your-sftp-host"
+sftp_username = "your-sftp-user"
 ```
-REPORT_DATE|ACCOUNT_ID|SECURITY_TICKER|SHARES|MARKET_VALUE|SOURCE_SYSTEM
-20250115|ACC001|AAPL|100|18550.00|CUSTODIAN_A
+
+3. **Initialize Terraform**:
+
+```bash
+terraform init
 ```
 
-## SFTP Setup
+4. **Plan Deployment**:
 
-The application requires SFTP access for file ingestion. See [SFTP_SETUP_GUIDE.md](SFTP_SETUP_GUIDE.md) for:
-- Setting up SFTP server (Linux, AWS Transfer Family, or Docker)
-- Configuring SSH key authentication
-- Testing SFTP connection
-- Troubleshooting common issues
+```bash
+terraform plan -out=tfplan
+```
 
-**Quick Setup**: Run `bash scripts/setup_sftp_key.sh` to generate SSH keys, then test with `python scripts/test_sftp.py`
+5. **Apply Changes**:
 
-## Deployment
+```bash
+terraform apply tfplan
+```
 
-The project includes Terraform configurations for AWS deployment and GitHub Actions for CI/CD.
+### Automated CI/CD Deployment
 
-**Quick Start**: See [AWS_DEPLOYMENT_GUIDE.md](AWS_DEPLOYMENT_GUIDE.md) for detailed step-by-step instructions.
+The project includes a GitHub Actions workflow that automatically deploys on push to `main`:
 
-**Automated**: Run `./deploy.sh` for automated deployment (requires AWS CLI, Terraform, and Docker).
+1. **Push to GitHub**:
+```bash
+git add .
+git commit -m "Your changes"
+git push origin main
+```
 
-**Manual**: See [DEPLOYMENT.md](DEPLOYMENT.md) for manual deployment steps.
+2. **Monitor Deployment**:
+   - Go to GitHub → Actions tab
+   - Watch the "Deploy to AWS" workflow
 
-## Alerting
+3. **Workflow Steps**:
+   - Configure AWS credentials
+   - Set up Terraform
+   - Initialize Terraform
+   - Plan infrastructure changes
+   - Build Docker image
+   - Push to ECR
+   - Apply Terraform changes
+   - Update ECS service
+   - Run smoke tests
 
-The system sends alerts for:
-1. **Compliance Violations**: When any account has >20% holding in a single ticker
-2. **Ingestion Failures**: When file processing fails
-3. **Data Quality Issues**: When data quality problems are detected
+### Get Deployment Information
 
-Alert service endpoint and API key are configurable via environment variables.
+```bash
+# Get ALB DNS name
+terraform output alb_dns_name
 
-## Complete Process Guide
+# Get database endpoint
+terraform output database_endpoint
 
-**📖 For the complete end-to-end process from setup to deployment, see [COMPLETE_PROCESS_GUIDE.md](COMPLETE_PROCESS_GUIDE.md)**
+# Get ECR repository URL
+terraform output ecr_repository_url
+```
 
-This guide covers:
-- Initial setup and local development
-- SFTP server configuration
-- Testing (unit tests, smoke tests)
-- CI/CD pipeline setup
-- AWS deployment
-- Post-deployment configuration
+## 🔌 API Endpoints
 
-## License
+### Health & Metrics
 
-Proprietary - Vest Financial
+- **GET `/health`**: Health check endpoint
+  ```bash
+  curl http://localhost:5001/health
+  ```
+
+- **GET `/metrics`**: Basic metrics
+  ```bash
+  curl http://localhost:5001/metrics
+  ```
+
+### API Endpoints (Require API Key)
+
+All API endpoints require authentication via `X-API-Key` header or `api_key` query parameter.
+
+- **GET `/api/blotter`**: Get trade blotter
+  ```bash
+  curl -H "X-API-Key: your-api-key" \
+    "http://localhost:5001/api/blotter?date=2025-01-15"
+  ```
+
+- **GET `/api/positions`**: Get positions
+  ```bash
+  curl -H "X-API-Key: your-api-key" \
+    "http://localhost:5001/api/positions?date=2025-01-15"
+  ```
+
+- **GET `/api/alarms`**: Get alarms
+  ```bash
+  curl -H "X-API-Key: your-api-key" \
+    "http://localhost:5001/api/alarms?date=2025-01-15"
+  ```
+
+### Query Parameters
+
+- `date`: Filter by trade date (YYYY-MM-DD format)
+- `account_id`: Filter by account ID
+- `ticker`: Filter by ticker symbol
+- `api_key`: API key (alternative to header)
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `API_URL` | API URL for smoke tests | `http://127.0.0.1:5001` |
+| `DATABASE_URL` | Database connection string (SQLite or PostgreSQL) | `sqlite:///pdc.db` |
+| `API_KEY` | API authentication key | `dev-api-key-change-in-production` |
+| `SECRET_KEY` | Flask secret key | `dev-secret-key-change-in-production` |
+| `SFTP_HOST` | SFTP server hostname | `127.0.0.1` |
+| `SFTP_HOST_PORT` | SFTP host port (for Docker port mapping) | `3022` |
+| `SFTP_PORT` | SFTP server port (the port app connects to) | `3022` |
+| `SFTP_USERNAME` | SFTP username | `sftp_user` |
+| `SFTP_KEY_PATH` | Path to SSH private key | `~/.ssh/id_pdc` |
+| `SFTP_REMOTE_PATH` | Remote SFTP path | `/uploads` |
+| `SFTP_PROCESSED_PATH` | Processed files path | `/processed` |
+| `ALERT_SERVICE_URL` | Alert service endpoint | `http://localhost:5002/alerts` |
+| `ALERT_API_KEY` | Alert service API key | `alert-api-key` |
+| `PORT` | Application port (local dev) | `5001` |
+| `HOST` | Application host (local dev) | `127.0.0.1` |
+
+### Terraform Variables
+
+See `terraform/variables.tf` for all available variables.
+
+## 🧪 Testing
+
+### Unit Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test
+pytest tests/test_routes.py -v
+```
+
+### Smoke Tests
+
+Test deployed application:
+
+```bash
+# Local
+export API_URL="http://localhost:5001"
+python scripts/smoketest.py
+
+# AWS (after deployment)
+export API_URL="http://$(terraform output -raw alb_dns_name)"
+python scripts/smoketest.py
+```
+
+### API Testing
+
+```bash
+# Test API endpoints
+python scripts/test_api.py
+```
+
+## 🔧 Troubleshooting
+
+### Local Development Issues
+
+**Database Connection Error**:
+- **For SQLite**: Check file permissions in the project directory
+- **For PostgreSQL**: 
+  - Verify PostgreSQL is running: `pg_isready`
+  - Check `DATABASE_URL` in `.env`
+  - Ensure database exists: `psql -l | grep pdc_db`
+
+**Port Already in Use**:
+- Change `PORT` in `.env` to a different port
+- Or kill the process using the port
+
+**Import Errors**:
+- Ensure virtual environment is activated
+- Reinstall dependencies: `pip install -r requirements.txt`
+
+### AWS Deployment Issues
+
+**Terraform IAM Errors**:
+- Verify IAM permissions allow creating roles under `/interview/` path
+- Check that permissions boundary is set correctly
+- Ensure roles don't already exist at root path
+
+**ECS Tasks Not Starting**:
+- Check CloudWatch logs: `/ecs/pdc-app`
+- Verify security group allows port 5000 from ALB
+- Check task definition health check configuration
+- Verify `DATABASE_URL` is correct (no duplicate port)
+
+**Health Checks Failing**:
+- Ensure `curl` is installed in Docker image
+- Check health check timeout and start period settings
+- Verify application is listening on port 5000
+- Check security group rules
+
+**Database Connection Issues**:
+- Verify RDS security group allows connections from ECS security group
+- Check `DATABASE_URL` format (should be `postgresql://user:pass@host/db`, not `host:5432:5432`)
+- Verify database credentials in Terraform variables
+
+**ALB 503 Errors**:
+- Check target group health: AWS Console → EC2 → Target Groups
+- Verify ECS tasks are running and healthy
+- Check security group allows ALB → ECS communication on port 5000
+
+### Common Fixes
+
+1. **Rebuild Docker Image**:
+   ```bash
+   docker build -t pdc-app .
+   ```
+
+2. **Check ECS Task Logs**:
+   ```bash
+   aws logs tail /ecs/pdc-app --follow
+   ```
+
+3. **Verify Terraform State**:
+   ```bash
+   terraform state list
+   ```
+
+4. **Force ECS Service Update**:
+   ```bash
+   aws ecs update-service --cluster pdc-cluster --service pdc-app-service --force-new-deployment
+   ```
+
+## 📁 Project Structure
+
+```
+vest/
+├── app/                    # Flask application
+│   ├── __init__.py        # App factory
+│   ├── config.py          # Configuration
+│   ├── models.py          # Database models
+│   ├── routes.py          # API routes
+│   ├── middleware.py      # Request middleware
+│   └── services/          # Business logic
+│       ├── sftp_service.py
+│       ├── file_ingestion.py
+│       ├── ingestion_worker.py
+│       └── alerting_service.py
+├── terraform/             # Infrastructure as Code
+│   ├── main.tf           # Main infrastructure
+│   ├── ecs.tf            # ECS configuration
+│   ├── scheduled_task.tf # EventBridge tasks
+│   ├── variables.tf      # Variable definitions
+│   └── outputs.tf        # Output values
+├── scripts/               # Utility scripts
+│   ├── smoketest.py      # Smoke tests
+│   ├── test_api.py       # API tests
+│   └── ingest_files.py   # Data ingestion
+├── tests/                 # Unit tests
+├── .github/
+│   └── workflows/
+│       └── deploy.yml     # CI/CD pipeline
+├── Dockerfile            # Docker image definition
+├── requirements.txt      # Python dependencies
+└── run.py               # Application entry point
+```
+
 
