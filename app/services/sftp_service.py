@@ -6,7 +6,6 @@ import paramiko
 
 from app.config import Config
 
-
 logger = logging.getLogger(__name__)
 
 
