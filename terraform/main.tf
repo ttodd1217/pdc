@@ -6,13 +6,18 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
   
-  backend "s3" {
-    bucket = "pdc-terraform-state"
-    key    = "pdc/terraform.tfstate"
-    region = "us-east-2"
-  }
+  # Commented out for local testing - uncomment after S3 bucket is created
+  # backend "s3" {
+  #   bucket = "pdc-terraform-state"
+  #   key    = "pdc/terraform.tfstate"
+  #   region = "us-east-2"
+  # }
 }
 
 provider "aws" {

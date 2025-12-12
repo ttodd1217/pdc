@@ -2,8 +2,19 @@
 
 A Flask-based application for ingesting, storing, and querying trade data with REST API endpoints for blotter, positions, and alarms. Deployed on AWS ECS with automated CI/CD via GitHub Actions.
 
-## 📋 Table of Contents
+## � SFTP Server Setup
 
+**New to this project?** Start with the SFTP server setup:
+
+→ **[📖 SFTP Quick Start Guide](./QUICKSTART.md)** - 5 minutes to a working SFTP server
+
+→ **[✅ SFTP Setup Checklist](./SETUP_CHECKLIST.md)** - Interactive step-by-step guide
+
+→ **[📑 Complete SFTP Documentation](./README_SFTP_SETUP.md)** - Everything you need to know
+
+## �📋 Table of Contents
+
+- [SFTP Setup](#sftp-server-setup) ← **Start here if new!**
 - [Features](#features)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
@@ -13,6 +24,13 @@ A Flask-based application for ingesting, storing, and querying trade data with R
 - [Configuration](#configuration)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+**📚 Complete documentation files:**
+- `QUICKSTART.md` - 3-step quick setup
+- `SETUP_CHECKLIST.md` - Interactive checklist
+- `SETUP_FLOWCHART.md` - Visual diagrams
+- `README_SFTP_SETUP.md` - Comprehensive guide
+- `DOCUMENTATION_INDEX.md` - Index of all documentation
 
 ## ✨ Features
 

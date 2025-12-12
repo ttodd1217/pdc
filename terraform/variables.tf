@@ -37,6 +37,12 @@ variable "sftp_host" {
 variable "sftp_username" {
   description = "SFTP server username"
   type        = string
-  default     = ""
+  default     = "sftp_user"
+}
+
+variable "sftp_port" {
+  description = "SFTP server port"
+  type        = number
+  default     = 22
 }
 
