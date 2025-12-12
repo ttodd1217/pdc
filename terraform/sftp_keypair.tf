@@ -17,5 +17,4 @@ resource "local_file" "sftp_private_key" {
   content         = tls_private_key.sftp.private_key_pem
   filename        = "${path.module}/pdc-sftp-server-key.pem"
   file_permission = "0600"
-  sensitive       = true
 }
