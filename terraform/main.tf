@@ -207,7 +207,7 @@ resource "aws_ecr_repository" "app" {
 # This creates a NEW role at /interview/ path with permissions boundary
 # Note: Old role at "/" path will remain orphaned in AWS but unused
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name                 = "pdc-ecs-task-execution-role"
+  name                 = "pdc-ecs-task-execution-role-v2"
   path                 = "/interview/"
   permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
@@ -259,7 +259,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
 # This creates a NEW role at /interview/ path with permissions boundary
 # Note: Old role at "/" path will remain orphaned in AWS but unused
 resource "aws_iam_role" "ecs_task_role" {
-  name                 = "pdc-ecs-task-app-role"
+  name                 = "pdc-ecs-task-app-role-v2"
   path                 = "/interview/"
   permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
@@ -301,7 +301,7 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "pdc-alb"
+  name               = "pdc-alb-v2"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.app.id]
@@ -315,7 +315,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name        = "pdc-app-tg-fargate"
+  name        = "pdc-app-tg-fargate-v2"
   port        = 5000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id

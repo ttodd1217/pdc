@@ -13,7 +13,7 @@ resource "aws_cloudwatch_event_rule" "ingestion_schedule" {
 # This creates a NEW role at /interview/ path with permissions boundary
 # Note: Old role at "/" path will remain orphaned in AWS but unused
 resource "aws_iam_role" "eventbridge_ecs" {
-  name                 = "pdc-eventbridge-ecs-role"
+  name                 = "pdc-eventbridge-ecs-role-v2"
   path                 = "/interview/"
   permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/InterviewCandidatePolicy"
 
@@ -122,7 +122,7 @@ resource "aws_ecs_task_definition" "ingestion" {
 
 # CloudWatch Log Group for Ingestion
 resource "aws_cloudwatch_log_group" "ingestion" {
-  name              = "/ecs/pdc-ingestion"
+  name              = "/ecs/pdc-ingestion-v2"
   retention_in_days = 7
 
   tags = {
