@@ -1,6 +1,5 @@
 import logging
 import os
-from importlib.resources import files
 from pathlib import Path
 
 import paramiko
@@ -9,7 +8,6 @@ from app.config import Config
 
 
 logger = logging.getLogger(__name__)
-
 
 
 class SFTPService:
@@ -48,7 +46,9 @@ class SFTPService:
             logger.error(f"SSH key not found at {self.key_path}")
             raise
         except Exception as e:
-            logger.error(f"Failed to connect to SFTP server {self.host}:{self.port} - {e}")
+            logger.error(
+                f"Failed to connect to SFTP server {self.host}:{self.port} - {e}"
+            )
             raise
 
     def list_files(self):
@@ -103,7 +103,10 @@ class SFTPService:
                 sftp.put(local_source_path, processed_filepath)
                 sftp.remove(remote_filepath)
                 logger.info(
-                    f"Uploaded local copy of {filename} to processed directory and removed remote upload"
+                    (
+                        f"Uploaded local copy of {filename} to processed directory "
+                        "and removed remote upload"
+                    )
                 )
             else:
                 # Remove existing file if already processed to avoid rename errors
