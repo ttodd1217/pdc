@@ -2,6 +2,7 @@
 """
 Smoke test script for PDC API endpoints.
 Tests liveness and basic functionality of all endpoints.
+Reports failures to the AlertingService.
 """
 import sys
 import requests
@@ -30,13 +31,42 @@ API_KEY = (os.environ.get('API_KEY') or '').strip() or 'dev-api-key'
 MAX_RETRIES = 3
 RETRY_DELAY = 10  # seconds between retries
 
+# Import AlertingService for failure reporting
+try:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, project_root)
+    from app import create_app
+    from app.config import Config
+    from app.services.alerting_service import AlertingService
+    ALERTING_AVAILABLE = True
+except Exception as e:
+    print(f"[WARNING] AlertingService not available: {str(e)}")
+    ALERTING_AVAILABLE = False
+
+def send_alert(test_name, error_message, severity="high"):
+    """Send alert via AlertingService if available"""
+    if not ALERTING_AVAILABLE:
+        return
+    
+    try:
+        app = create_app(Config)
+        with app.app_context():
+            alerting = AlertingService()
+            alert_msg = f"Smoketest '{test_name}' failed: {error_message}"
+            alerting.send_alert(alert_msg, severity=severity)
+            print(f"[ALERT] Sent alert to AlertingService: {alert_msg}")
+    except Exception as e:
+        print(f"[WARNING] Failed to send alert: {str(e)}")
+
 def test_health():
     """Test health check endpoint"""
     print("Testing /health endpoint...")
     try:
         response = requests.get(f"{API_URL}/health", timeout=5)
         if response.status_code == 503:
-            print(f"[FAIL] Health check failed: ALB returned 503 - ECS tasks not ready yet (initializing...)")
+            error_msg = "ALB returned 503 - ECS tasks not ready yet"
+            print(f"[FAIL] Health check failed: {error_msg}")
+            send_alert("health_check", error_msg, severity="warning")
             return False
         assert response.status_code == 200
         data = response.json()
@@ -47,9 +77,11 @@ def test_health():
     except Exception as e:
         error_str = str(e)
         if '503' in error_str:
-            print(f"[FAIL] Health check failed: ALB returned 503 - ECS tasks not ready yet (initializing...)")
+            print(f"[FAIL] Health check failed: ALB returned 503")
+            send_alert("health_check", "ALB returned 503 - ECS tasks initializing", severity="warning")
         else:
             print(f"[FAIL] Health check failed: {error_str}")
+            send_alert("health_check", error_str, severity="high")
         return False
 
 def test_metrics():

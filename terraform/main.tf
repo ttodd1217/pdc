@@ -293,6 +293,21 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
           "logs:PutLogEvents"
         ]
         Resource = "${aws_cloudwatch_log_group.app.arn}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion"
+        ]
+        Resource = "arn:aws:s3:::pdc-sftp-data-*/uploads/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = "arn:aws:s3:::pdc-sftp-data-*"
       }
     ]
   })

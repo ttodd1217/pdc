@@ -90,6 +90,10 @@ resource "aws_ecs_task_definition" "ingestion" {
         {
           name  = "SFTP_USERNAME"
           value = var.sftp_username
+        },
+        {
+          name  = "INGEST_EVENT"
+          value = ""
         }
       ]
 
