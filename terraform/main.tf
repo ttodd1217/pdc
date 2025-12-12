@@ -316,7 +316,7 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "pdc-alb-v2"
+  name               = "pdc-alb-v3"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.app.id]
@@ -330,7 +330,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name        = "pdc-app-tg-fargate-v2"
+  name        = "pdc-app-tg-fargate-v3"
   port        = 5000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
