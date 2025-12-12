@@ -20,12 +20,15 @@ terraform {
     }
   }
   
-  # Commented out for local testing - uncomment after S3 bucket is created
-  # backend "s3" {
-  #   bucket = "pdc-terraform-state"
-  #   key    = "pdc/terraform.tfstate"
-  #   region = "us-east-2"
-  # }
+  # Remote backend for Terraform state (S3 + DynamoDB locking).
+  # Ensure the S3 bucket and DynamoDB table exist before running `terraform init -reconfigure`.
+  backend "s3" {
+    bucket         = "pdc-terraform-state-669411698716"
+    key            = "pdc/terraform.tfstate"
+    region         = "us-east-2"
+    dynamodb_table = "pdc-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
