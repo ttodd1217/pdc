@@ -1,13 +1,15 @@
-from importlib.resources import files
 import logging
 import os
+from importlib.resources import files
 from pathlib import Path
 
 import paramiko
 
 from app.config import Config
 
+
 logger = logging.getLogger(__name__)
+
 
 
 class SFTPService:
@@ -91,11 +93,12 @@ class SFTPService:
             except IOError:
                 pass  # Directory already exists
 
-            # Some SFTP implementations (like atmoz/sftp) mount uploads and
-            # processed directories on separate volumes, so server-side rename
-            # fails with "Failure". If we still have the local file we just
-            # ingested, upload it to the processed directory and then delete the
-            # original remote copy. Otherwise, fall back to rename.
+            # Some SFTP servers (for example atmoz/sftp) mount uploads and
+            # processed directories on separate volumes. Server-side rename may
+            # fail with "Failure" in that case. If we still have the local
+            # copy that we just ingested, upload it to the processed directory
+            # and then delete the original remote copy. Otherwise, fall back
+            # to a rename operation.
             if local_source_path and os.path.exists(local_source_path):
                 sftp.put(local_source_path, processed_filepath)
                 sftp.remove(remote_filepath)
