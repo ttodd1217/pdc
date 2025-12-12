@@ -12,6 +12,8 @@ A Flask-based application for ingesting, storing, and querying trade data with R
 
 → **[📑 Complete SFTP Documentation](./README_SFTP_SETUP.md)** - Everything you need to know
 
+Note: SFTP keypair automation — The Terraform configuration can now generate and register an ED25519 keypair for the SFTP EC2 instance (Terraform `tls` provider + `aws_key_pair`). The private key will be written to `terraform/pdc-sftp-server-key.pem` and is stored in the Terraform state (sensitive). If you prefer to manage keys manually, the old manual commands (`ssh-keygen` + `aws ec2 import-key-pair`) are still supported and described in `QUICK_SFTP_START.md`.
+
 ## �📋 Table of Contents
 
 - [SFTP Setup](#sftp-server-setup) ← **Start here if new!**
@@ -212,9 +214,31 @@ pytest tests/test_routes.py
    - IAM Roles and Policies (under `/interview/` path)
    - EventBridge Rules
 
-2. **Terraform Backend**: S3 bucket for Terraform state
-   - Bucket: `pdc-terraform-state`
-   - Region: `us-east-2`
+2. **Terraform Backend**: S3 bucket for Terraform state (recommended)
+
+  This repository expects a remote S3 backend with DynamoDB locking for CI and collaborative work. The default names used in the Terraform config are:
+
+  - Bucket: `pdc-terraform-state-669411698716`
+  - Key: `pdc/terraform.tfstate`
+  - Region: `us-east-2`
+  - DynamoDB table (locking): `pdc-terraform-locks`
+
+  Create these resources before running `terraform init -reconfigure`, or provide backend config values at init time with `-backend-config` (recommended for CI).
+
+  Example (PowerShell):
+
+  ```powershell
+  aws s3api create-bucket --bucket pdc-terraform-state-669411698716 --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2
+  aws s3api put-bucket-encryption --bucket pdc-terraform-state-669411698716 --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms"}}]}'
+  aws dynamodb create-table --table-name pdc-terraform-locks --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --region us-east-2
+  ```
+
+  Then initialize Terraform and migrate state if needed:
+
+  ```powershell
+  cd terraform
+  terraform init -reconfigure
+  ```
 
 3. **GitHub Secrets**: Configure in your repository settings:
    - `AWS_ACCESS_KEY_ID`
@@ -277,7 +301,7 @@ git push origin main
 3. **Workflow Steps**:
    - Configure AWS credentials
    - Set up Terraform
-   - Initialize Terraform
+  - Initialize Terraform (use `-reconfigure` or `-backend-config` in CI)
    - Plan infrastructure changes
    - Build Docker image
    - Push to ECR
@@ -384,7 +408,28 @@ pytest tests/test_routes.py -v
 
 ### Smoke Tests
 
-Test deployed application:
+Test deployed application. See `SMOKETEST_DEMO.md` for a concise 5-minute demo script and troubleshooting steps.
+
+PowerShell (Windows) — recommended when running locally from the repo or CI runner that uses PowerShell:
+
+```powershell
+cd terraform
+$ALB_DNS   = terraform output -raw alb_dns_name
+$SFTP_IP   = terraform output -raw sftp_ec2_public_ip
+$S3_BUCKET = terraform output -raw sftp_data_bucket
+# If using Secrets Manager for API or alerting keys, fetch them explicitly
+$API_KEY   = aws secretsmanager get-secret-value --secret-id pdc/alert-api-key --region us-east-2 --query SecretString --output text
+
+"ALB: $ALB_DNS"
+"SFTP: $SFTP_IP"
+"S3: $S3_BUCKET"
+
+# Run the smoke test script (it uses API_URL or the ALB DNS directly)
+$env:API_URL = "http://$ALB_DNS"
+python ..\scripts\smoketest.py
+```
+
+Bash (Linux/macOS):
 
 ```bash
 # Local
