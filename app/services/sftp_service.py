@@ -1,3 +1,4 @@
+from importlib.resources import files
 import logging
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class SFTPService:
     def __init__(self):
         self.host = Config.SFTP_HOST
-        self.port = Config.SFTP_PORT
+        self.port = int(Config.SFTP_PORT)
         self.username = Config.SFTP_USERNAME
         self.key_path = os.path.expanduser(Config.SFTP_KEY_PATH)
         self.remote_path = Config.SFTP_REMOTE_PATH
@@ -24,9 +25,14 @@ class SFTPService:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
+            key_file = Path(self.key_path)
+            if not key_file.exists():
+                logger.error(f"SSH key not found at {self.key_path}")
+                raise FileNotFoundError(f"SSH key not found at {self.key_path}")
+
             private_key = paramiko.Ed25519Key.from_private_key_file(self.key_path)
             ssh.connect(
-                hostname="127.0.0.1",
+                hostname=self.host,
                 port=self.port,
                 username=self.username,
                 pkey=private_key,
@@ -34,28 +40,13 @@ class SFTPService:
                 allow_agent=False,
                 look_for_keys=False,
             )
+            logger.info("Successfully connected to SFTP server")
             return ssh
         except FileNotFoundError:
             logger.error(f"SSH key not found at {self.key_path}")
             raise
-        except OSError as e:
-            # Windows-specific socket permission errors
-            if "10013" in str(e) or "socket" in str(e).lower():
-                error_msg = (
-                    f"Windows socket permission error: {str(e)}\n"
-                    f"This usually means Windows Firewall is blocking the connection.\n"
-                    f"Solutions:\n"
-                    f"1. Allow Python through Windows Firewall\n"
-                    f"2. Check if antivirus is blocking the connection\n"
-                    f"3. Try running as administrator\n"
-                    f"4. Test connection: Test-NetConnection -ComputerName {self.host} -Port {self.port}"
-                )
-                logger.error(error_msg)
-                raise OSError(error_msg) from e
-            logger.error(f"Failed to connect to SFTP server: {str(e)}")
-            raise
         except Exception as e:
-            logger.error(f"Failed to connect to SFTP server: {str(e)}")
+            logger.error(f"Failed to connect to SFTP server {self.host}:{self.port} - {e}")
             raise
 
     def list_files(self):
@@ -65,7 +56,8 @@ class SFTPService:
 
         try:
             files = sftp.listdir(self.remote_path)
-            return [f for f in files if f.endswith((".csv", ".txt"))]
+            logger.info(f"Found files in {self.remote_path}: {files}")
+            return [f for f in files if f.endswith((".csv", ".txt", ".psv"))]
         finally:
             sftp.close()
             ssh.close()
