@@ -82,14 +82,13 @@ chmod 755 /home/sftp_user/uploads
 chmod 755 /home/sftp_user/processed
 chmod 700 /home/sftp_user/.ssh
 
-# Generate SSH key pair
-if [ ! -f /home/sftp_user/.ssh/id_ed25519 ]; then
-  sudo -u sftp_user ssh-keygen -t ed25519 -N "" -f /home/sftp_user/.ssh/id_ed25519 -C "sftp_user@pdc-sftp"
-  sudo -u sftp_user cp /home/sftp_user/.ssh/id_ed25519.pub /home/sftp_user/.ssh/authorized_keys
-  chmod 600 /home/sftp_user/.ssh/authorized_keys
-  chmod 600 /home/sftp_user/.ssh/id_ed25519
-  chmod 600 /home/sftp_user/.ssh/id_ed25519.pub
-fi
+# Add the public key to authorized_keys for password-less authentication
+cat > /home/sftp_user/.ssh/authorized_keys <<'KEYEOF'
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIDjeHsMLuBEjmgnlTCD/Gn3SklCzxZ1eJedabojcg8X administrator@DESKTOP-4517OPL
+KEYEOF
+chmod 600 /home/sftp_user/.ssh/authorized_keys
+chown sftp_user:sftp_user /home/sftp_user/.ssh/authorized_keys
+chown -R sftp_user:sftp_user /home/sftp_user/.ssh
 
 # Configure OpenSSH for SFTP-only access
 if ! grep -q "Subsystem sftp" /etc/ssh/sshd_config; then
