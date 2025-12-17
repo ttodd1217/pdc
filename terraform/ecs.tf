@@ -115,7 +115,7 @@ resource "aws_cloudwatch_log_group" "app" {
 
 # Secrets Manager for sensitive data
 resource "aws_secretsmanager_secret" "sftp_key" {
-  name = "pdc/sftp-key"
+  name = "pdc/sftp-key-restored"
   
   tags = {
     Name = "pdc-sftp-key"
@@ -123,7 +123,7 @@ resource "aws_secretsmanager_secret" "sftp_key" {
 }
 
 resource "aws_secretsmanager_secret" "alert_api_key" {
-  name = "pdc/alert-api-key"
+  name = "pdc/alert-api-key-restored"
   
   tags = {
     Name = "pdc-alert-api-key"
