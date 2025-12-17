@@ -55,64 +55,67 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# User data script for SFTP setup
 locals {
   sftp_user_data = <<-EOF
 #!/bin/bash
 set -e
 
-# Update system packages
-apt-get update
-apt-get upgrade -y
+apt-get update -y
+apt-get install -y openssh-server sudo
 
-# Install required packages
-apt-get install -y openssh-server openssh-client sudo curl wget
-
-# Create SFTP user (vest)
+# Create SFTP-only user
 if ! id "sftp_user" &>/dev/null; then
-  useradd -m -d /home/sftp_user -s /bin/bash sftp_user
+  useradd -m -d /home/sftp_user -s /usr/sbin/nologin sftp_user
 fi
 
-# Create SFTP directories on local filesystem
+# Directories
 mkdir -p /home/sftp_user/uploads
 mkdir -p /home/sftp_user/processed
 mkdir -p /home/sftp_user/.ssh
+
+# Chroot requirements (CRITICAL)
+chown root:root /home/sftp_user
 chmod 755 /home/sftp_user
-chmod 755 /home/sftp_user/uploads
-chmod 755 /home/sftp_user/processed
+chown -R sftp_user:sftp_user /home/sftp_user/uploads
+chown -R sftp_user:sftp_user /home/sftp_user/processed
+chown -R sftp_user:sftp_user /home/sftp_user/.ssh
 chmod 700 /home/sftp_user/.ssh
 
-# Add the public key to authorized_keys for password-less authentication
-cat > /home/sftp_user/.ssh/authorized_keys <<'KEYEOF'
+# Authorized SSH key
+cat <<'KEYEOF' > /home/sftp_user/.ssh/authorized_keys
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMRmkF13Mwt/iq+RecnzBgdRkkFYw7QJGOYAD24BfLNz administrator@DESKTOP-4517OPL
 KEYEOF
+
 chmod 600 /home/sftp_user/.ssh/authorized_keys
 chown sftp_user:sftp_user /home/sftp_user/.ssh/authorized_keys
-chown -R sftp_user:sftp_user /home/sftp_user/.ssh
 
-# Configure OpenSSH for SFTP-only access
-if ! grep -q "Subsystem sftp" /etc/ssh/sshd_config; then
-  cat >> /etc/ssh/sshd_config <<'SSHEOF'
+# Force internal-sftp safely
+sed -i 's|^Subsystem sftp.*|Subsystem sftp internal-sftp|' /etc/ssh/sshd_config
 
-# SFTP Configuration for PDC
-Subsystem sftp /usr/lib/openssh/sftp-server -f AUTHPRIV -l INFO
+# Remove any old Match blocks
+sed -i '/^Match User sftp_user/,$d' /etc/ssh/sshd_config
+
+# Append Match block LAST
+cat <<'SSHEOF' >> /etc/ssh/sshd_config
+
+# PDC SFTP-only user
 Match User sftp_user
-    AllowAgentForwarding no
+    ChrootDirectory /home/sftp_user
+    ForceCommand internal-sftp
     AllowTcpForwarding no
-    PermitTTY no
-    PermitUserRC no
     X11Forwarding no
-    ForceCommand internal-sftp -d /home/sftp_user
+    PermitTTY no
 SSHEOF
-fi
 
-# Restart SSH
+# Validate and restart SSH
+sshd -t
 systemctl restart ssh
 systemctl enable ssh
 
-echo "SFTP Server Setup Complete"
+echo "SFTP server ready"
 EOF
 }
+
 
 # EC2 Instance for SFTP Server
 resource "aws_instance" "sftp_server" {
@@ -122,30 +125,14 @@ resource "aws_instance" "sftp_server" {
   key_name      = aws_key_pair.sftp.key_name
 
   vpc_security_group_ids = [aws_security_group.sftp_ec2.id]
-
-  # Explicit dependency to ensure key pair is fully propagated before instance creation
-  depends_on = [aws_key_pair.sftp]
-
-  # Enable public IP assignment
   associate_public_ip_address = true
-
-  # User data for SFTP configuration
   user_data = base64encode(local.sftp_user_data)
 
   root_block_device {
-    volume_size           = 20
-    volume_type           = "gp3"
-    delete_on_termination = true
-    encrypted             = true
+    volume_size = 20
+    volume_type = "gp3"
+    encrypted   = true
   }
-
-  metadata_options {
-    http_endpoint           = "enabled"
-    http_tokens             = "required"
-    http_put_response_hop_limit = 1
-  }
-
-  monitoring = true
 
   tags = {
     Name = "pdc-sftp-server"
