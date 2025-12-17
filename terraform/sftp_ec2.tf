@@ -84,7 +84,7 @@ chmod 700 /home/sftp_user/.ssh
 
 # Add the public key to authorized_keys for password-less authentication
 cat > /home/sftp_user/.ssh/authorized_keys <<'KEYEOF'
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIDjeHsMLuBEjmgnlTCD/Gn3SklCzxZ1eJedabojcg8X administrator@DESKTOP-4517OPL
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMRmkF13Mwt/iq+RecnzBgdRkkFYw7QJGOYAD24BfLNz administrator@DESKTOP-4517OPL
 KEYEOF
 chmod 600 /home/sftp_user/.ssh/authorized_keys
 chown sftp_user:sftp_user /home/sftp_user/.ssh/authorized_keys
