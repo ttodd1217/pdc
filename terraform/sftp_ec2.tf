@@ -67,7 +67,7 @@ echo "Starting user-data script at $(date)"
 
 # Update system
 apt-get update -y
-apt-get install -y openssh-server sudo python3 python3-pip python3-venv git postgresql-client
+apt-get install -y openssh-server sudo python3 python3-pip python3-venv git
 
 echo "✓ System packages installed"
 
@@ -153,7 +153,7 @@ source /opt/pdc/venv/bin/activate
 
 # Install Python dependencies
 pip install --upgrade pip setuptools wheel
-pip install Flask SQLAlchemy psycopg2-binary python-dotenv paramiko boto3 python-dateutil requests
+pip install Flask SQLAlchemy python-dotenv paramiko boto3 python-dateutil requests
 
 echo "✓ Python environment created and dependencies installed"
 
@@ -163,14 +163,14 @@ cat > $PROJECT_DIR/scripts/ingest_local_files.py <<'PYEOF'
 """
 Local file ingestion script for EC2.
 Processes files directly from /home/sftp_user/uploads
+Uses SQLite for local persistence
 """
 import os
 import sys
 import csv
-import io
+import sqlite3
 import logging
 from datetime import datetime
-import psycopg2
 from pathlib import Path
 
 # Setup logging
@@ -186,20 +186,42 @@ logger = logging.getLogger(__name__)
 
 UPLOADS_DIR = "/home/sftp_user/uploads"
 PROCESSED_DIR = "/home/sftp_user/processed"
+DB_PATH = "/opt/pdc/pdc.db"
 
 def get_db_connection():
-    """Create database connection"""
+    """Create SQLite database connection"""
     try:
-        conn = psycopg2.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            database=os.getenv('DB_NAME', 'pdc_db'),
-            user=os.getenv('DB_USER', 'postgres'),
-            password=os.getenv('DB_PASSWORD', ''),
-            port=os.getenv('DB_PORT', '5432')
-        )
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        logger.info(f"Connected to SQLite database at {DB_PATH}")
         return conn
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
+        raise
+
+def init_db(conn):
+    """Initialize database schema if needed"""
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS trade (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trade_date DATE NOT NULL,
+                account_id TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                price REAL NOT NULL,
+                market_value REAL,
+                trade_type TEXT DEFAULT 'BUY',
+                settlement_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        logger.info("Database schema initialized")
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
         raise
 
 def parse_csv_file(file_path):
@@ -246,7 +268,7 @@ def parse_csv_file(file_path):
         return []
 
 def save_trades_to_db(conn, trades):
-    """Save trades to database"""
+    """Save trades to SQLite database"""
     if not trades:
         return 0
     
@@ -254,7 +276,7 @@ def save_trades_to_db(conn, trades):
         cursor = conn.cursor()
         insert_query = """
             INSERT INTO trade (trade_date, account_id, ticker, quantity, price, market_value, trade_type, settlement_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         for trade in trades:
@@ -278,7 +300,7 @@ def save_trades_to_db(conn, trades):
         logger.error(f"Error saving trades: {e}")
         raise
 
-def process_file(file_path):
+def process_file(file_path, conn):
     """Process a single file"""
     filename = os.path.basename(file_path)
     logger.info(f"Processing {filename}...")
@@ -287,9 +309,7 @@ def process_file(file_path):
         trades = parse_csv_file(file_path)
         
         if trades:
-            conn = get_db_connection()
             count = save_trades_to_db(conn, trades)
-            conn.close()
             logger.info(f"Successfully processed {filename}: {count} trades")
         else:
             logger.warning(f"No trades found in {filename}")
@@ -313,6 +333,10 @@ def main():
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     os.makedirs(PROCESSED_DIR, exist_ok=True)
     
+    # Get database connection
+    conn = get_db_connection()
+    init_db(conn)
+    
     # List files
     try:
         files = [f for f in os.listdir(UPLOADS_DIR) if f.endswith(('.csv', '.txt', '.psv'))]
@@ -320,15 +344,18 @@ def main():
         
         if not files:
             logger.info("No files to process")
+            conn.close()
             return
         
         for filename in files:
             file_path = os.path.join(UPLOADS_DIR, filename)
             if os.path.isfile(file_path):
-                process_file(file_path)
+                process_file(file_path, conn)
         
+        conn.close()
         logger.info("Ingestion completed")
     except Exception as e:
+        conn.close()
         logger.error(f"Error listing files: {e}")
 
 if __name__ == '__main__':
@@ -339,34 +366,23 @@ chmod +x $PROJECT_DIR/scripts/ingest_local_files.py
 echo "✓ Local ingestion script created"
 
 # Setup cron job for ingestion (every 5 minutes)
-# First, create environment file for cron
-cat > /opt/pdc/.env.cron <<'ENVEOF'
-DB_HOST=__DB_HOST__
-DB_NAME=pdc_db
-DB_USER=__DB_USER__
-DB_PASSWORD=__DB_PASSWORD__
-DB_PORT=5432
-ENVEOF
-
-# Set proper permissions
-chown ingest_worker:ingest_worker /opt/pdc
-chmod 755 /opt/pdc
-chown ingest_worker:ingest_worker /opt/pdc/scripts/ingest_local_files.py
-
 # Create cron job script wrapper
 cat > /opt/pdc/scripts/run_ingest_cron.sh <<'CRONEOF'
 #!/bin/bash
-source /opt/pdc/.env.cron
-export DB_HOST DB_NAME DB_USER DB_PASSWORD DB_PORT
 /opt/pdc/venv/bin/python3 /opt/pdc/scripts/ingest_local_files.py
 CRONEOF
 
 chmod +x /opt/pdc/scripts/run_ingest_cron.sh
-chown ingest_worker:ingest_worker /opt/pdc/scripts/run_ingest_cron.sh
+
+# Set proper permissions
+chown ingest_worker:ingest_worker /opt/pdc
+chmod 755 /opt/pdc
+chown -R ingest_worker:ingest_worker /opt/pdc/scripts
+chmod -R 755 /opt/pdc/scripts
 
 # Install cron job for ingest_worker user
 cat > /tmp/crontab-ingest <<'CRONEOF'
-*/5 * * * * /opt/pdc/scripts/run_ingest_cron.sh >> /var/log/pdc-ingest-cron.log 2>&1
+* * * * * /opt/pdc/scripts/run_ingest_cron.sh >> /var/log/pdc-ingest-cron.log 2>&1
 CRONEOF
 
 sudo -u ingest_worker crontab /tmp/crontab-ingest
