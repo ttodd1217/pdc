@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
 Script to trigger file ingestion.
-Supports two modes:
-  1. Scheduled/Batch Mode: Process all files from SFTP server
-  2. Event-Driven Mode: Process a single file from S3 (triggered by S3 ObjectCreated event)
+Supports three modes:
+  1. Local Disk Mode (EC2): Process all files from /home/sftp_user/uploads (RECOMMENDED for EC2)
+  2. SFTP Mode: Process all files from SFTP server
+  3. Event-Driven Mode: Process a single file from S3 (triggered by S3 ObjectCreated event)
 """
 import sys
 import os
 import json
 import tempfile
 import boto3
+import shutil
 
 # Ensure the project root is on the Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,9 +32,89 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def ingest_from_local_disk():
+    """
+    Local disk mode: Process all files from /home/sftp_user/uploads (on EC2).
+    This is the RECOMMENDED mode when running on EC2 with local SFTP storage.
+    Files are processed automatically by cron job every 5 minutes.
+    """
+    logger.info("Starting local disk ingestion (EC2 mode)")
+    
+    uploads_dir = "/home/sftp_user/uploads"
+    processed_dir = "/home/sftp_user/processed"
+    
+    # Create directories if they don't exist
+    os.makedirs(uploads_dir, exist_ok=True)
+    os.makedirs(processed_dir, exist_ok=True)
+    
+    try:
+        # List files
+        files = [f for f in os.listdir(uploads_dir) 
+                if os.path.isfile(os.path.join(uploads_dir, f)) 
+                and f.endswith(('.csv', '.txt', '.psv'))]
+        
+        logger.info(f"Found {len(files)} files to process in {uploads_dir}")
+        
+        if not files:
+            logger.info("No files to process")
+            return
+        
+        app = create_app(Config)
+        
+        with app.app_context():
+            ingestion_service = FileIngestionService()
+            
+            for filename in files:
+                file_path = os.path.join(uploads_dir, filename)
+                processed_path = os.path.join(processed_dir, filename)
+                
+                try:
+                    logger.info(f"Processing {filename}...")
+                    
+                    # Ingest the file
+                    count = ingestion_service.ingest_file(file_path)
+                    logger.info(f"Successfully ingested {filename}: {count} records")
+                    
+                    # Move to processed directory
+                    shutil.move(file_path, processed_path)
+                    logger.info(f"Moved {filename} to {processed_dir}")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing {filename}: {str(e)}")
+                    # Continue with next file instead of failing completely
+                    continue
+        
+        logger.info("Local disk ingestion completed")
+        
+    except Exception as e:
+        logger.error(f"Error in local disk ingestion: {str(e)}", exc_info=True)
+        raise
+
+
+def ingest_from_sftp():
+    """
+    SFTP mode: Process all files from SFTP server (legacy/alternative mode).
+    Use this if you want the ingestion to download from remote SFTP instead of local disk.
+    """
+    logger.info("Starting SFTP batch ingestion")
+    
+    app = create_app(Config)
+    
+    with app.app_context():
+        worker = IngestionWorker()
+        try:
+            worker.process_files()
+            logger.info("SFTP batch ingestion completed successfully")
+            return True
+        except Exception as e:
+            logger.error(f"SFTP batch ingestion failed: {str(e)}", exc_info=True)
+            raise
+
+
 def ingest_from_s3(bucket_name, object_key):
     """
-    Ingest a single file from S3.
+    Event-driven mode: Ingest a single file from S3.
+    Triggered by S3 ObjectCreated event via EventBridge.
     
     Args:
         bucket_name: S3 bucket name
@@ -72,37 +154,22 @@ def ingest_from_s3(bucket_name, object_key):
         raise
 
 
-def ingest_all_files():
-    """
-    Scheduled/Batch mode: Process all files from SFTP server.
-    """
-    logger.info("Starting scheduled batch ingestion")
-    
-    app = create_app(Config)
-    
-    with app.app_context():
-        worker = IngestionWorker()
-        try:
-            worker.process_files()
-            logger.info("Batch ingestion completed successfully")
-            return True
-        except Exception as e:
-            logger.error(f"Batch ingestion failed: {str(e)}", exc_info=True)
-            raise
-
-
 def main():
     """
     Main entry point.
+    Determines which ingestion mode to use based on environment.
     
-    Checks for INGEST_EVENT environment variable:
-    - If set: Event-driven mode (S3 file)
-    - If not set: Scheduled batch mode (all SFTP files)
+    Priority:
+    1. INGEST_EVENT → S3 mode (single file from event)
+    2. INGEST_MODE=local → Local disk mode (EC2)
+    3. INGEST_MODE=sftp → SFTP mode (remote)
+    4. Default → Local disk mode (EC2)
     """
     ingest_event_json = os.getenv('INGEST_EVENT')
+    ingest_mode = os.getenv('INGEST_MODE', 'local').lower()
     
     if ingest_event_json:
-        # Event-driven mode
+        # Event-driven mode (S3)
         try:
             event = json.loads(ingest_event_json)
             bucket = event.get('s3_bucket')
@@ -118,13 +185,23 @@ def main():
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse INGEST_EVENT JSON: {str(e)}")
             sys.exit(1)
-    else:
-        # Scheduled batch mode
+    
+    elif ingest_mode == 'sftp':
+        # SFTP mode
         try:
-            ingest_all_files()
+            ingest_from_sftp()
             sys.exit(0)
         except Exception as e:
-            print(f"File ingestion failed: {str(e)}")
+            logger.error(f"SFTP ingestion failed: {str(e)}")
+            sys.exit(1)
+    
+    else:
+        # Local disk mode (default, recommended for EC2)
+        try:
+            ingest_from_local_disk()
+            sys.exit(0)
+        except Exception as e:
+            logger.error(f"Local disk ingestion failed: {str(e)}")
             sys.exit(1)
 
 
